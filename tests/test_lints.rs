@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-pub use std::error::Error;
+pub use thiserror::StdError as Error;
 
 #[test]
 fn test_unused_qualifications() {

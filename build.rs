@@ -42,6 +42,7 @@ fn main() {
     }
 
     if error_generic_member_access {
+        println!("cargo:rustc-cfg=error_in_core");
         println!("cargo:rustc-cfg=error_generic_member_access");
     }
 

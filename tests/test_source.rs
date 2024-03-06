@@ -1,6 +1,6 @@
-use std::error::Error as StdError;
 use std::io;
 use thiserror::Error;
+use thiserror::StdError;
 
 #[derive(Error, Debug)]
 #[error("implicit source")]

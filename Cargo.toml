@@ -11,8 +11,12 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/dtolnay/thiserror"
 rust-version = "1.56"
 
+[features]
+default = ["std"]
+std = ["thiserror-impl/std"]
+
 [dependencies]
-thiserror-impl = { version = "=1.0.57", path = "impl" }
+thiserror-impl = { version = "=1.0.57", path = "impl", default-features = false }
 
 [dev-dependencies]
 anyhow = "1.0.73"

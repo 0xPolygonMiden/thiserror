@@ -36,7 +36,7 @@ fn fallback(input: &DeriveInput, error: syn::Error) -> TokenStream {
         #error
 
         #[allow(unused_qualifications)]
-        impl #impl_generics std::error::Error for #ty #ty_generics #where_clause
+        impl #impl_generics thiserror::StdError for #ty #ty_generics #where_clause
         where
             // Work around trivial bounds being unstable.
             // https://github.com/rust-lang/rust/issues/48214
@@ -60,17 +60,17 @@ fn impl_struct(input: Struct) -> TokenStream {
     let source_body = if let Some(transparent_attr) = &input.attrs.transparent {
         let only_field = &input.fields[0];
         if only_field.contains_generic {
-            error_inferred_bounds.insert(only_field.ty, quote!(std::error::Error));
+            error_inferred_bounds.insert(only_field.ty, quote!(thiserror::StdError));
         }
         let member = &only_field.member;
         Some(quote_spanned! {transparent_attr.span=>
-            std::error::Error::source(self.#member.as_dyn_error())
+            thiserror::StdError::source(self.#member.as_dyn_error())
         })
     } else if let Some(source_field) = input.source_field() {
         let source = &source_field.member;
         if source_field.contains_generic {
             let ty = unoptional_type(source_field.ty);
-            error_inferred_bounds.insert(ty, quote!(std::error::Error + 'static));
+            error_inferred_bounds.insert(ty, quote!(thiserror::StdError + 'static));
         }
         let asref = if type_is_option(source_field.ty) {
             Some(quote_spanned!(source.member_span()=> .as_ref()?))
@@ -88,13 +88,14 @@ fn impl_struct(input: Struct) -> TokenStream {
     };
     let source_method = source_body.map(|body| {
         quote! {
-            fn source(&self) -> ::core::option::Option<&(dyn std::error::Error + 'static)> {
+            fn source(&self) -> ::core::option::Option<&(dyn thiserror::StdError + 'static)> {
                 use thiserror::__private::AsDynError as _;
                 #body
             }
         }
     });
 
+    #[cfg(feature = "std")]
     let provide_method = input.backtrace_field().map(|backtrace_field| {
         let request = quote!(request);
         let backtrace = &backtrace_field.member;
@@ -146,6 +147,9 @@ fn impl_struct(input: Struct) -> TokenStream {
             }
         }
     });
+
+    #[cfg(not(feature = "std"))]
+    let provide_method: Option<TokenStream> = None;
 
     let mut display_implied_bounds = Set::new();
     let display_body = if input.attrs.transparent.is_some() {
@@ -211,7 +215,7 @@ fn impl_struct(input: Struct) -> TokenStream {
 
     quote! {
         #[allow(unused_qualifications)]
-        impl #impl_generics std::error::Error for #ty #ty_generics #error_where_clause {
+        impl #impl_generics thiserror::StdError for #ty #ty_generics #error_where_clause {
             #source_method
             #provide_method
         }
@@ -231,11 +235,11 @@ fn impl_enum(input: Enum) -> TokenStream {
             if let Some(transparent_attr) = &variant.attrs.transparent {
                 let only_field = &variant.fields[0];
                 if only_field.contains_generic {
-                    error_inferred_bounds.insert(only_field.ty, quote!(std::error::Error));
+                    error_inferred_bounds.insert(only_field.ty, quote!(thiserror::StdError));
                 }
                 let member = &only_field.member;
                 let source = quote_spanned! {transparent_attr.span=>
-                    std::error::Error::source(transparent.as_dyn_error())
+                    thiserror::StdError::source(transparent.as_dyn_error())
                 };
                 quote! {
                     #ty::#ident {#member: transparent} => #source,
@@ -244,7 +248,7 @@ fn impl_enum(input: Enum) -> TokenStream {
                 let source = &source_field.member;
                 if source_field.contains_generic {
                     let ty = unoptional_type(source_field.ty);
-                    error_inferred_bounds.insert(ty, quote!(std::error::Error + 'static));
+                    error_inferred_bounds.insert(ty, quote!(thiserror::StdError + 'static));
                 }
                 let asref = if type_is_option(source_field.ty) {
                     Some(quote_spanned!(source.member_span()=> .as_ref()?))
@@ -265,7 +269,7 @@ fn impl_enum(input: Enum) -> TokenStream {
             }
         });
         Some(quote! {
-            fn source(&self) -> ::core::option::Option<&(dyn std::error::Error + 'static)> {
+            fn source(&self) -> ::core::option::Option<&(dyn thiserror::StdError + 'static)> {
                 use thiserror::__private::AsDynError as _;
                 #[allow(deprecated)]
                 match self {
@@ -277,6 +281,7 @@ fn impl_enum(input: Enum) -> TokenStream {
         None
     };
 
+    #[cfg(feature = "std")]
     let provide_method = if input.has_backtrace() {
         let request = quote!(request);
         let arms = input.variants.iter().map(|variant| {
@@ -381,6 +386,9 @@ fn impl_enum(input: Enum) -> TokenStream {
         None
     };
 
+    #[cfg(not(feature = "std"))]
+    let provide_method: Option<TokenStream> = None;
+
     let display_impl = if input.has_display() {
         let mut display_inferred_bounds = InferredBounds::new();
         let has_bonus_display = input.variants.iter().any(|v| {
@@ -467,7 +475,7 @@ fn impl_enum(input: Enum) -> TokenStream {
 
     quote! {
         #[allow(unused_qualifications)]
-        impl #impl_generics std::error::Error for #ty #ty_generics #error_where_clause {
+        impl #impl_generics thiserror::StdError for #ty #ty_generics #error_where_clause {
             #source_method
             #provide_method
         }

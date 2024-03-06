@@ -1,7 +1,7 @@
 use anyhow::anyhow;
-use std::error::Error as _;
 use std::io;
 use thiserror::Error;
+use thiserror::StdError as _;
 
 #[test]
 fn test_transparent_struct() {

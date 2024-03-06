@@ -11,6 +11,10 @@ rust-version = "1.56"
 [lib]
 proc-macro = true
 
+[features]
+default = ["std"]
+std = []
+
 [dependencies]
 proc-macro2 = "1.0.74"
 quote = "1.0.35"

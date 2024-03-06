@@ -228,6 +228,7 @@
 //!
 //!   [`anyhow`]: https://github.com/dtolnay/anyhow
 
+#![no_std]
 #![doc(html_root_url = "https://docs.rs/thiserror/1.0.57")]
 #![allow(
     clippy::module_name_repetitions,
@@ -236,9 +237,96 @@
     clippy::wildcard_imports
 )]
 #![cfg_attr(error_generic_member_access, feature(error_generic_member_access))]
+#![cfg_attr(error_in_core, feature(error_in_core))]
 
 #[cfg(all(thiserror_nightly_testing, not(error_generic_member_access)))]
 compile_error!("Build script probe failed to compile.");
+
+#[cfg(feature = "std")]
+extern crate std;
+
+#[cfg(all(not(feature = "std"), error_in_core))]
+pub use core::error::Error as StdError;
+#[cfg(feature = "std")]
+pub use std::error::Error as StdError;
+#[cfg(not(any(feature = "std", error_in_core)))]
+pub trait StdError: core::fmt::Debug + core::fmt::Display {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        None
+    }
+    fn description(&self) -> &str {
+        "description() is deprecated; use Display"
+    }
+    fn cause(&self) -> Option<&dyn StdError> {
+        self.source()
+    }
+    /// Gets the `TypeId` of `self`.
+    fn type_id(&self, _: __private::Internal) -> core::any::TypeId
+    where
+        Self: 'static,
+    {
+        core::any::TypeId::of::<Self>()
+    }
+}
+#[cfg(not(any(feature = "std", error_in_core)))]
+impl dyn StdError + 'static {
+    #[inline]
+    pub fn is<T: StdError + 'static>(&self) -> bool {
+        use core::any::Any;
+
+        // Get `TypeId` of the type this function is instantiated with.
+        let t = core::any::TypeId::of::<T>();
+
+        // Get `TypeId` of the type in the trait object (`self`).
+        let concrete = self.type_id(__private::Internal);
+
+        // Compare both `TypeId`s on equality.
+        t == concrete
+    }
+
+    /// Returns some reference to the inner value if it is of type `T`, or
+    /// `None` if it isn't.
+    pub fn downcast_ref<T: StdError + 'static>(&self) -> Option<&T> {
+        if self.is::<T>() {
+            // SAFETY: `is` ensures this type cast is correct
+            unsafe { Some(&*(self as *const dyn StdError as *const T)) }
+        } else {
+            None
+        }
+    }
+
+    /// Returns some mutable reference to the inner value if it is of type `T`, or
+    /// `None` if it isn't.
+    #[inline]
+    pub fn downcast_mut<T: StdError + 'static>(&mut self) -> Option<&mut T> {
+        if self.is::<T>() {
+            // SAFETY: `is` ensures this type cast is correct
+            unsafe { Some(&mut *(self as *mut dyn StdError as *mut T)) }
+        } else {
+            None
+        }
+    }
+}
+#[cfg(not(any(feature = "std", error_in_core)))]
+impl dyn StdError + 'static + Send + Sync {
+    /// Forwards to the method defined on the type `dyn Error`.
+    #[inline]
+    pub fn is<T: StdError + 'static>(&self) -> bool {
+        <dyn StdError + 'static>::is::<T>(self)
+    }
+
+    /// Forwards to the method defined on the type `dyn Error`.
+    #[inline]
+    pub fn downcast_ref<T: StdError + 'static>(&self) -> Option<&T> {
+        <dyn StdError + 'static>::downcast_ref::<T>(self)
+    }
+
+    /// Forwards to the method defined on the type `dyn Error`.
+    #[inline]
+    pub fn downcast_mut<T: StdError + 'static>(&mut self) -> Option<&mut T> {
+        <dyn StdError + 'static>::downcast_mut::<T>(self)
+    }
+}
 
 mod aserror;
 mod display;
@@ -257,4 +345,7 @@ pub mod __private {
     #[cfg(error_generic_member_access)]
     #[doc(hidden)]
     pub use crate::provide::ThiserrorProvide;
+    #[cfg(not(any(feature = "std", error_in_core)))]
+    #[derive(Debug)]
+    pub struct Internal;
 }

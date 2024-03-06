@@ -29,6 +29,7 @@ impl Enum<'_> {
             .any(|variant| variant.source_field().is_some() || variant.attrs.transparent.is_some())
     }
 
+    #[cfg(feature = "std")]
     pub(crate) fn has_backtrace(&self) -> bool {
         self.variants
             .iter()
