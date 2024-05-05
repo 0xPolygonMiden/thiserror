@@ -1,6 +1,6 @@
 [package]
 name = "thiserror"
-version = "1.0.57"
+version = "1.0.59"
 authors = ["David Tolnay <dtolnay@gmail.com>"]
 categories = ["rust-patterns"]
 description = "derive(Error)"
@@ -16,7 +16,7 @@ default = ["std"]
 std = ["thiserror-impl/std"]
 
 [dependencies]
-thiserror-impl = { version = "=1.0.57", path = "impl", default-features = false }
+thiserror-impl = { version = "=1.0.59", path = "impl", default-features = false }
 
 [dev-dependencies]
 anyhow = "1.0.73"
